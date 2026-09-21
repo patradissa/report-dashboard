@@ -6,6 +6,12 @@ import plotly.express as px
 st.set_page_config(page_title="Executive Hotel Report", layout="wide")
 st.title("🏨 Executive Hotel Performance Dashboard")
 
+# Fungsi format angka ke Rupiah
+def format_rupiah(nilai):
+    if pd.isna(nilai):
+        return "Rp 0"
+    return f"Rp {nilai:,.0f}".replace(",", ".")
+
 # 1. Load Data
 @st.cache_data
 def load_data():
@@ -65,7 +71,7 @@ if menu_pilihan == "Ringkasan Utama & KPI":
     st.subheader("📌 Executive Summary & Key Metrics")
     
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Revenue", f"IDR {df_filtered['Revenue'].sum():,.0f}")
+    col1.metric("Total Revenue", format_rupiah(df_filtered['Revenue'].sum()))
     col2.metric("Total Booking", f"{len(df_filtered)} Transaksi")
     col3.metric("Kamar Valid", f"{df_filtered[df_filtered['Room number'] != 'nan']['Room number'].nunique()} Kamar")
     col4.metric("Booking Tanpa Kamar (NaN)", f"{df_filtered['Room type'].isna().sum()} Transaksi")
@@ -77,14 +83,13 @@ if menu_pilihan == "Ringkasan Utama & KPI":
         st.markdown("**Tren Revenue Bulanan**")
         monthly_totals = df_filtered.groupby('Check_in_Month', as_index=False)['Revenue'].sum()
         
-        # Grafik Garis Tren Revenue
         fig1 = px.line(
             monthly_totals, 
             x='Check_in_Month', 
             y='Revenue', 
             markers=True, 
             title="Tren Revenue Bulanan",
-            labels={'Check_in_Month': 'Bulan', 'Revenue': 'Total Revenue (IDR)'}
+            labels={'Check_in_Month': 'Bulan', 'Revenue': 'Total Revenue'}
         )
         fig1.update_traces(line_shape='linear', line_width=3)
         st.plotly_chart(fig1, use_container_width=True)
@@ -108,9 +113,13 @@ elif menu_pilihan == "Analisis Per Tipe Kamar":
         .sort_values(by='Total_Booking', ascending=False)
     )
     
+    # Format kolom Total_Revenue ke Rupiah untuk tabel
+    type_summary_display = type_summary.copy()
+    type_summary_display['Total_Revenue'] = type_summary_display['Total_Revenue'].apply(format_rupiah)
+    
     col1, col2 = st.columns([1, 1])
     with col1:
-        st.dataframe(type_summary, use_container_width=True)
+        st.dataframe(type_summary_display, use_container_width=True)
     with col2:
         fig = px.bar(type_summary, x='Room type', y='Total_Booking', text='Total_Booking', title="Jumlah Booking per Room Type")
         st.plotly_chart(fig, use_container_width=True)
@@ -128,7 +137,10 @@ elif menu_pilihan == "Analisis Per Kamar / Room Number":
         .sort_values(by='Total_Revenue', ascending=False)
     )
     
-    st.dataframe(room_summary, use_container_width=True)
+    room_summary_display = room_summary.copy()
+    room_summary_display['Total_Revenue'] = room_summary_display['Total_Revenue'].apply(format_rupiah)
+    
+    st.dataframe(room_summary_display, use_container_width=True)
 
 # ---------------------------------------------------------
 # MENU 4: TREN PER TANGGAL & BULAN
@@ -146,16 +158,18 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
             .sort_values(by='Check_in_Date_Only')
         )
         
-        # Grafik Garis Tren Harian
         fig_daily = px.line(
             daily_summary, 
             x='Check_in_Date_Only', 
             y='Total_Revenue', 
             title="Grafik Tren Revenue Harian",
-            labels={'Check_in_Date_Only': 'Tanggal', 'Total_Revenue': 'Total Revenue (IDR)'}
+            labels={'Check_in_Date_Only': 'Tanggal', 'Total_Revenue': 'Total Revenue'}
         )
         st.plotly_chart(fig_daily, use_container_width=True)
-        st.dataframe(daily_summary, use_container_width=True)
+        
+        daily_summary_display = daily_summary.copy()
+        daily_summary_display['Total_Revenue'] = daily_summary_display['Total_Revenue'].apply(format_rupiah)
+        st.dataframe(daily_summary_display, use_container_width=True)
         
     with tab2:
         monthly_summary = (
@@ -165,17 +179,19 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
             .sort_values(by='Check_in_Month')
         )
         
-        # Grafik Garis Tren Bulanan
         fig_monthly = px.line(
             monthly_summary, 
             x='Check_in_Month', 
             y='Total_Revenue', 
             markers=True, 
             title="Grafik Tren Revenue Bulanan",
-            labels={'Check_in_Month': 'Bulan', 'Total_Revenue': 'Total Revenue (IDR)'}
+            labels={'Check_in_Month': 'Bulan', 'Total_Revenue': 'Total Revenue'}
         )
         st.plotly_chart(fig_monthly, use_container_width=True)
-        st.dataframe(monthly_summary, use_container_width=True)
+        
+        monthly_summary_display = monthly_summary.copy()
+        monthly_summary_display['Total_Revenue'] = monthly_summary_display['Total_Revenue'].apply(format_rupiah)
+        st.dataframe(monthly_summary_display, use_container_width=True)
 
 # ---------------------------------------------------------
 # MENU 5: DATA MENTAH / RAW DATA
@@ -183,4 +199,7 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
 elif menu_pilihan == "Data Mentah / Raw Data":
     st.subheader("📋 Raw Data View")
     st.write(f"Menampilkan {len(df_filtered)} baris data hasil filter.")
-    st.dataframe(df_filtered, use_container_width=True)
+    
+    raw_data_display = df_filtered.copy()
+    raw_data_display['Revenue'] = raw_data_display['Revenue'].apply(format_rupiah)
+    st.dataframe(raw_data_display, use_container_width=True)
