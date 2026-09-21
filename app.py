@@ -17,6 +17,9 @@ def load_data():
     df['Check_in_Month'] = df['Check-in date'].dt.strftime('%Y-%m')
     df['Check_in_Date_Only'] = df['Check-in date'].dt.date
     
+    # Rename kolom 'Amount' menjadi 'Revenue'
+    df = df.rename(columns={'Amount': 'Revenue'})
+    
     room_mapping = {
         '1B': 'Economy', '2B': 'Economy', '3B': 'Economy', '4B': 'Economy', '5B': 'Economy',
         '6': 'Standard Room', '7': 'Standard Room', '17': 'Standard Room', '22': 'Standard Room', '25': 'Standard Room', '1A': 'Standard Room',
@@ -36,7 +39,6 @@ df = load_data()
 # 2. Sidebar Navigation & Filter
 st.sidebar.header("Navigasi & Filter")
 
-# Menu Pilihan Tampilan
 menu_pilihan = st.sidebar.radio(
     "Pilih Menu Dashboard:",
     [
@@ -48,7 +50,6 @@ menu_pilihan = st.sidebar.radio(
     ]
 )
 
-# Filter Bulan (Berlaku untuk semua menu)
 selected_month = st.sidebar.multiselect(
     "Pilih Bulan:",
     options=sorted(df['Check_in_Month'].dropna().unique()),
@@ -64,7 +65,7 @@ if menu_pilihan == "Ringkasan Utama & KPI":
     st.subheader("📌 Executive Summary & Key Metrics")
     
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Revenue", f"IDR {df_filtered['Amount'].sum():,.0f}")
+    col1.metric("Total Revenue", f"IDR {df_filtered['Revenue'].sum():,.0f}")
     col2.metric("Total Booking", f"{len(df_filtered)} Transaksi")
     col3.metric("Kamar Valid", f"{df_filtered[df_filtered['Room number'] != 'nan']['Room number'].nunique()} Kamar")
     col4.metric("Booking Tanpa Kamar (NaN)", f"{df_filtered['Room type'].isna().sum()} Transaksi")
@@ -73,15 +74,25 @@ if menu_pilihan == "Ringkasan Utama & KPI":
     
     col_chart1, col_chart2 = st.columns(2)
     with col_chart1:
-        st.markdown("**Tren Pendapatan Bulanan**")
-        monthly_totals = df_filtered.groupby('Check_in_Month', as_index=False)['Amount'].sum()
-        fig1 = px.bar(monthly_totals, x='Check_in_Month', y='Amount', text_auto='.2s', color='Amount', color_continuous_scale='Blues')
+        st.markdown("**Tren Revenue Bulanan**")
+        monthly_totals = df_filtered.groupby('Check_in_Month', as_index=False)['Revenue'].sum()
+        
+        # Grafik Garis Tren Revenue
+        fig1 = px.line(
+            monthly_totals, 
+            x='Check_in_Month', 
+            y='Revenue', 
+            markers=True, 
+            title="Tren Revenue Bulanan",
+            labels={'Check_in_Month': 'Bulan', 'Revenue': 'Total Revenue (IDR)'}
+        )
+        fig1.update_traces(line_shape='linear', line_width=3)
         st.plotly_chart(fig1, use_container_width=True)
         
     with col_chart2:
         st.markdown("**Proporsi Revenue per Tipe Kamar**")
-        room_totals = df_filtered.groupby('Room type', as_index=False)['Amount'].sum()
-        fig2 = px.pie(room_totals, names='Room type', values='Amount', hole=0.4)
+        room_totals = df_filtered.groupby('Room type', as_index=False)['Revenue'].sum()
+        fig2 = px.pie(room_totals, names='Room type', values='Revenue', hole=0.4)
         st.plotly_chart(fig2, use_container_width=True)
 
 # ---------------------------------------------------------
@@ -92,7 +103,7 @@ elif menu_pilihan == "Analisis Per Tipe Kamar":
     
     type_summary = (
         df_filtered.groupby('Room type', dropna=False)
-        .agg(Total_Booking=('Booking number', 'count'), Total_Amount=('Amount', 'sum'))
+        .agg(Total_Booking=('Booking number', 'count'), Total_Revenue=('Revenue', 'sum'))
         .reset_index()
         .sort_values(by='Total_Booking', ascending=False)
     )
@@ -112,9 +123,9 @@ elif menu_pilihan == "Analisis Per Kamar / Room Number":
     
     room_summary = (
         df_filtered.groupby(['Room type', 'Room number'], dropna=True)
-        .agg(Total_Booking=('Booking number', 'count'), Total_Amount=('Amount', 'sum'))
+        .agg(Total_Booking=('Booking number', 'count'), Total_Revenue=('Revenue', 'sum'))
         .reset_index()
-        .sort_values(by='Total_Amount', ascending=False)
+        .sort_values(by='Total_Revenue', ascending=False)
     )
     
     st.dataframe(room_summary, use_container_width=True)
@@ -123,26 +134,47 @@ elif menu_pilihan == "Analisis Per Kamar / Room Number":
 # MENU 4: TREN PER TANGGAL & BULAN
 # ---------------------------------------------------------
 elif menu_pilihan == "Tren Per Tanggal & Bulan":
-    st.subheader("📅 Summary Per Tanggal & Bulan")
+    st.subheader("📅 Summary & Tren Per Tanggal & Bulan")
     
     tab1, tab2 = st.tabs(["Per Tanggal", "Per Bulan"])
     
     with tab1:
         daily_summary = (
             df_filtered.groupby('Check_in_Date_Only')
-            .agg(Total_Booking=('Booking number', 'count'), Total_Amount=('Amount', 'sum'))
+            .agg(Total_Booking=('Booking number', 'count'), Total_Revenue=('Revenue', 'sum'))
             .reset_index()
             .sort_values(by='Check_in_Date_Only')
         )
+        
+        # Grafik Garis Tren Harian
+        fig_daily = px.line(
+            daily_summary, 
+            x='Check_in_Date_Only', 
+            y='Total_Revenue', 
+            title="Grafik Tren Revenue Harian",
+            labels={'Check_in_Date_Only': 'Tanggal', 'Total_Revenue': 'Total Revenue (IDR)'}
+        )
+        st.plotly_chart(fig_daily, use_container_width=True)
         st.dataframe(daily_summary, use_container_width=True)
         
     with tab2:
         monthly_summary = (
             df_filtered.groupby('Check_in_Month')
-            .agg(Total_Booking=('Booking number', 'count'), Total_Amount=('Amount', 'sum'))
+            .agg(Total_Booking=('Booking number', 'count'), Total_Revenue=('Revenue', 'sum'))
             .reset_index()
             .sort_values(by='Check_in_Month')
         )
+        
+        # Grafik Garis Tren Bulanan
+        fig_monthly = px.line(
+            monthly_summary, 
+            x='Check_in_Month', 
+            y='Total_Revenue', 
+            markers=True, 
+            title="Grafik Tren Revenue Bulanan",
+            labels={'Check_in_Month': 'Bulan', 'Total_Revenue': 'Total Revenue (IDR)'}
+        )
+        st.plotly_chart(fig_monthly, use_container_width=True)
         st.dataframe(monthly_summary, use_container_width=True)
 
 # ---------------------------------------------------------
