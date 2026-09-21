@@ -90,10 +90,6 @@ Original file is located at
 # )
 # st.dataframe(summary_table, use_container_width=True)
 
-!pip install streamlit -q
-!npm install localtunnel
 
 import urllib.request
 print("Password/Endpoint IP kamu adalah:", urllib.request.urlopen('https://ipv4.icanhazip.com').read().decode('utf8').strip())
-
-!streamlit run app.py & npx localtunnel --port 8501
