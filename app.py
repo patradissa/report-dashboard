@@ -3,10 +3,10 @@ import pandas as pd
 import plotly.express as px
 
 # Set konfigurasi halaman
-st.set_page_config(page_title="Executive Hotel Report", layout="wide")
-st.title("🏨 Executive Hotel Performance Dashboard")
+st.set_page_config(page_title="Executive Hotel Report Patradissa", layout="wide")
+st.title("🏨 Patradissa Executive Hotel Performance Dashboard")
 
-# Fungsi format angka ke Rupiah
+# Helper function untuk format angka ke Rupiah
 def format_rupiah(nilai):
     if pd.isna(nilai):
         return "Rp 0"
@@ -23,7 +23,7 @@ def load_data():
     df['Check_in_Month'] = df['Check-in date'].dt.strftime('%Y-%m')
     df['Check_in_Date_Only'] = df['Check-in date'].dt.date
     
-    # Rename kolom 'Amount' menjadi 'Revenue'
+    # Rename 'Amount' -> 'Revenue'
     df = df.rename(columns={'Amount': 'Revenue'})
     
     room_mapping = {
@@ -41,6 +41,37 @@ def load_data():
     return df
 
 df = load_data()
+
+# CSS Kustom untuk Kartu KPI Responsif
+st.markdown("""
+<style>
+.kpi-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.kpi-card {
+    flex: 1 1 200px;
+    background-color: #f8f9fa;
+    padding: 1.2rem;
+    border-radius: 10px;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+}
+.kpi-title {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 0.3rem;
+    font-weight: 600;
+}
+.kpi-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # 2. Sidebar Navigation & Filter
 st.sidebar.header("Navigasi & Filter")
@@ -70,11 +101,27 @@ df_filtered = df[df['Check_in_Month'].isin(selected_month)]
 if menu_pilihan == "Ringkasan Utama & KPI":
     st.subheader("📌 Executive Summary & Key Metrics")
     
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Revenue", format_rupiah(df_filtered['Revenue'].sum()))
-    col2.metric("Total Booking", f"{len(df_filtered)} Transaksi")
-    col3.metric("Kamar Valid", f"{df_filtered[df_filtered['Room number'] != 'nan']['Room number'].nunique()} Kamar")
-    col4.metric("Booking Tanpa Kamar (NaN)", f"{df_filtered['Room type'].isna().sum()} Transaksi")
+    # KPI Metric Card Responsif
+    st.markdown(f"""
+    <div class="kpi-container">
+        <div class="kpi-card">
+            <div class="kpi-title">Total Revenue</div>
+            <div class="kpi-value">{format_rupiah(df_filtered['Revenue'].sum())}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Total Booking</div>
+            <div class="kpi-value">{len(df_filtered)} Transaksi</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Kamar Valid</div>
+            <div class="kpi-value">{df_filtered[df_filtered['Room number'] != 'nan']['Room number'].nunique()} Kamar</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Booking Tanpa Kamar (NaN)</div>
+            <div class="kpi-value">{df_filtered['Room type'].isna().sum()} Transaksi</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     st.divider()
     
@@ -113,7 +160,6 @@ elif menu_pilihan == "Analisis Per Tipe Kamar":
         .sort_values(by='Total_Booking', ascending=False)
     )
     
-    # Format kolom Total_Revenue ke Rupiah untuk tabel
     type_summary_display = type_summary.copy()
     type_summary_display['Total_Revenue'] = type_summary_display['Total_Revenue'].apply(format_rupiah)
     
