@@ -148,11 +148,12 @@ if menu_pilihan == "Ringkasan Utama & KPI":
         st.plotly_chart(fig2, use_container_width=True)
 
 # ---------------------------------------------------------
-# MENU 2: ANALISIS PER TIPE KAMAR
+# MENU 2: ANALISIS PER TIPE KAMAR (RESPONSIF)
 # ---------------------------------------------------------
 elif menu_pilihan == "Analisis Per Tipe Kamar":
     st.subheader("📊 Performance per Room Type")
     
+    # --- BAGIAN ATAS: TABEL & GRAFIK BATANG (BERDAMPINGAN/MENUMPUK) ---
     type_summary = (
         df_filtered.groupby('Room type', dropna=False)
         .agg(Total_Booking=('Booking number', 'count'), Total_Revenue=('Revenue', 'sum'))
@@ -163,12 +164,56 @@ elif menu_pilihan == "Analisis Per Tipe Kamar":
     type_summary_display = type_summary.copy()
     type_summary_display['Total_Revenue'] = type_summary_display['Total_Revenue'].apply(format_rupiah)
     
-    col1, col2 = st.columns([1, 1])
-    with col1:
+    # Gunakan layout responsif
+    col_tabel, col_chart = st.columns([1, 1])
+    
+    with col_tabel:
+        st.markdown("**Tabel Detail Per Tipe Kamar**")
         st.dataframe(type_summary_display, use_container_width=True)
-    with col2:
-        fig = px.bar(type_summary, x='Room type', y='Total_Booking', text='Total_Booking', title="Jumlah Booking per Room Type")
-        st.plotly_chart(fig, use_container_width=True)
+        
+    with col_chart:
+        fig_bar = px.bar(
+            type_summary, 
+            x='Room type', 
+            y='Total_Booking', 
+            text='Total_Booking', 
+            title="Total Booking per Tipe Kamar"
+        )
+        # Optimasi margin untuk layar kecil
+        fig_bar.update_layout(margin=dict(l=10, r=10, t=40, b=10))
+        st.plotly_chart(fig_bar, use_container_width=True)
+        
+    st.divider() # Garis pembatas horizontal
+    
+    # --- BAGIAN BAWAH: GRAFIK GARIS TREN HARIAN PER TIPE KAMAR ---
+    st.markdown("**Tren Jumlah Booking Harian per Tipe Kamar**")
+    
+    # Membuat aggregasi data harian berdasarkan tipe kamar
+    daily_type_summary = (
+        df_filtered.groupby(['Check_in_Date_Only', 'Room type'])
+        .agg(Total_Booking=('Booking number', 'count'))
+        .reset_index()
+        .sort_values(by='Check_in_Date_Only')
+    )
+    
+    # Membuat Grafik Garis Multi-Line
+    fig_line = px.line(
+        daily_type_summary,
+        x='Check_in_Date_Only',
+        y='Total_Booking',
+        color='Room type',  # Membedakan warna garis berdasarkan tipe kamar
+        markers=True,       # Menambahkan titik pada setiap data
+        title="Tren Harian Booking Berdasarkan Tipe Kamar",
+        labels={'Check_in_Date_Only': 'Tanggal Check-in', 'Total_Booking': 'Jumlah Booking'}
+    )
+    
+    # Menyesuaikan margin dan legenda agar rapi di semua layar
+    fig_line.update_layout(
+        margin=dict(l=10, r=10, t=40, b=10),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5) # Legenda horizontal di bawah chart
+    )
+    
+    st.plotly_chart(fig_line, use_container_width=True)
 
 # ---------------------------------------------------------
 # MENU 3: ANALISIS PER KAMAR / ROOM NUMBER
