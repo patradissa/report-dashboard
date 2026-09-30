@@ -9,8 +9,8 @@ st.title("🏨 Patradissa Executive Hotel Performance Dashboard")
 # Helper function untuk format angka ke Rupiah
 def format_rupiah(nilai):
     if pd.isna(nilai):
-        return "Rp 0"
-    return f"Rp {nilai:,.0f}".replace(",", ".")
+        return "Rp. 0"
+    return f"Rp. {nilai:,.0f}".replace(",", ".")
 
 # 1. Load Data
 @st.cache_data
@@ -265,17 +265,27 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
             .sort_values(by='Check_in_Date_Only')
         )
         
+        # Tambahkan kolom revenue terformat rupiah untuk hover
+        daily_summary['Revenue_Formatted'] = daily_summary['Total_Revenue'].apply(format_rupiah)
+        
         fig_daily = px.line(
             daily_summary, 
             x='Check_in_Date_Only', 
             y='Total_Revenue', 
             title="Grafik Tren Revenue Harian",
-            labels={'Check_in_Date_Only': 'Tanggal', 'Total_Revenue': 'Total Revenue'}
+            labels={'Check_in_Date_Only': 'Tanggal', 'Total_Revenue': 'Total Revenue'},
+            custom_data=['Revenue_Formatted']  # Kirim format Rupiah ke custom_data
         )
+        
+        # Custom hover template tanpa teks 'Tanggal=' dan 'Total Revenue='
+        fig_daily.update_traces(
+            hovertemplate="%{x}<br>%{customdata[0]}<extra></extra>"
+        )
+        
         fig_daily.update_layout(yaxis=dict(tickprefix="Rp ", tickformat=",.0f"))
         st.plotly_chart(fig_daily, use_container_width=True)
         
-        daily_summary_display = daily_summary.copy()
+        daily_summary_display = daily_summary[['Check_in_Date_Only', 'Total_Booking', 'Total_Revenue']].copy()
         daily_summary_display['Total_Revenue'] = daily_summary_display['Total_Revenue'].apply(format_rupiah)
         st.dataframe(daily_summary_display, use_container_width=True)
 
@@ -288,14 +298,24 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
             .sort_values(by='Week_Start')
         )
         
+        # Tambahkan kolom revenue terformat rupiah untuk hover
+        weekly_summary['Revenue_Formatted'] = weekly_summary['Total_Revenue'].apply(format_rupiah)
+        
         fig_weekly = px.line(
             weekly_summary, 
             x='Check_in_Week', 
             y='Total_Revenue', 
             markers=True,
             title="Grafik Tren Revenue Mingguan (Senin - Minggu)",
-            labels={'Check_in_Week': 'Minggu Ke-', 'Total_Revenue': 'Total Revenue'}
+            labels={'Check_in_Week': 'Minggu Ke-', 'Total_Revenue': 'Total Revenue'},
+            custom_data=['Revenue_Formatted']  # Kirim format Rupiah ke custom_data
         )
+        
+        # Custom hover template tanpa teks 'Minggu Ke-=' dan 'Total Revenue='
+        fig_weekly.update_traces(
+            hovertemplate="%{x}<br>%{customdata[0]}<extra></extra>"
+        )
+        
         fig_weekly.update_layout(yaxis=dict(tickprefix="Rp ", tickformat=",.0f"))
         st.plotly_chart(fig_weekly, use_container_width=True)
         
@@ -312,44 +332,63 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
             .sort_values(by='Check_in_Month')
         )
         
+        # Tambahkan nilai revenue terformat rupiah untuk hover
+        monthly_summary['Revenue_Formatted'] = monthly_summary['Total_Revenue'].apply(format_rupiah)
+        
         fig_monthly = px.line(
             monthly_summary, 
             x='Check_in_Month', 
             y='Total_Revenue', 
             markers=True, 
             title="Grafik Tren Revenue Bulanan",
-            labels={'Check_in_Month': 'Bulan', 'Total_Revenue': 'Total Revenue'}
+            labels={'Check_in_Month': 'Bulan', 'Total_Revenue': 'Total Revenue'},
+            custom_data=['Revenue_Formatted']  # Kirim format Rupiah ke custom_data
         )
+        
+        # Custom hover template tanpa teks 'Bulan=' dan 'Total Revenue='
+        fig_monthly.update_traces(
+            hovertemplate="%{x}<br>%{customdata[0]}<extra></extra>"
+        )
+        
         fig_monthly.update_layout(yaxis=dict(tickprefix="Rp ", tickformat=",.0f"))
         st.plotly_chart(fig_monthly, use_container_width=True)
         
-        monthly_summary_display = monthly_summary.copy()
+        monthly_summary_display = monthly_summary[['Check_in_Month', 'Total_Booking', 'Total_Revenue']].copy()
         monthly_summary_display['Total_Revenue'] = monthly_summary_display['Total_Revenue'].apply(format_rupiah)
         st.dataframe(monthly_summary_display, use_container_width=True)
 
     # --- TAB 4: KUARTALAN ---
     with tab4:
+        # Menyesuaikan label kuartal ke format 'Q1 2026'
+        df_filtered['Quarter_Label'] = df_filtered['Check_in_Date_DT'].dt.to_period('Q').apply(lambda q: f"Q{q.quarter} {q.year}")
+        
         quarterly_summary = (
-            df_filtered.groupby('Check_in_Quarter')
+            df_filtered.groupby('Quarter_Label')
             .agg(Total_Booking=('Booking number', 'count'), Total_Revenue=('Revenue', 'sum'))
             .reset_index()
-            .sort_values(by='Check_in_Quarter')
+            .sort_values(by='Quarter_Label')
         )
         quarterly_summary['Revenue_Formatted'] = quarterly_summary['Total_Revenue'].apply(format_rupiah)
         
         fig_quarterly = px.bar(
             quarterly_summary, 
-            x='Check_in_Quarter', 
+            x='Quarter_Label', 
             y='Total_Revenue', 
             text='Revenue_Formatted',
             title="Grafik Revenue Kuartalan",
-            labels={'Check_in_Quarter': 'Kuartal', 'Total_Revenue': 'Total Revenue'}
+            labels={'Quarter_Label': 'Kuartal', 'Total_Revenue': 'Total Revenue'}
         )
+        
+        # Kustomisasi format tooltip / hover text
+        fig_quarterly.update_traces(
+            hovertemplate="%{x}<br>revenue %{text}<extra></extra>",
+            textposition='outside'
+        )
+        
         fig_quarterly.update_layout(yaxis=dict(tickprefix="Rp ", tickformat=",.0f"))
-        fig_quarterly.update_traces(textposition='outside')
         st.plotly_chart(fig_quarterly, use_container_width=True)
         
-        quarterly_summary_display = quarterly_summary[['Check_in_Quarter', 'Total_Booking', 'Total_Revenue']].copy()
+        quarterly_summary_display = quarterly_summary[['Quarter_Label', 'Total_Booking', 'Total_Revenue']].copy()
         quarterly_summary_display['Total_Revenue'] = quarterly_summary_display['Total_Revenue'].apply(format_rupiah)
         st.dataframe(quarterly_summary_display, use_container_width=True)
 
