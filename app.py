@@ -139,12 +139,19 @@ if menu_pilihan == "Ringkasan Utama & KPI":
             labels={'Check_in_Month': 'Bulan', 'Revenue': 'Total Revenue'}
         )
         fig1.update_traces(line_shape='linear', line_width=3)
+        fig1.update_layout(yaxis=dict(tickprefix="Rp ", tickformat=",.0f"))
         st.plotly_chart(fig1, use_container_width=True)
         
     with col_chart2:
         st.markdown("**Proporsi Revenue per Tipe Kamar**")
         room_totals = df_filtered.groupby('Room type', as_index=False)['Revenue'].sum()
-        fig2 = px.pie(room_totals, names='Room type', values='Revenue', hole=0.4)
+        fig2 = px.pie(
+            room_totals, 
+            names='Room type', 
+            values='Revenue', 
+            hole=0.4,
+            hover_data={'Revenue': ':Rp ,.0f'}
+        )
         st.plotly_chart(fig2, use_container_width=True)
 
 # ---------------------------------------------------------
@@ -153,7 +160,7 @@ if menu_pilihan == "Ringkasan Utama & KPI":
 elif menu_pilihan == "Analisis Per Tipe Kamar":
     st.subheader("📊 Performance per Room Type")
     
-    # --- BAGIAN ATAS: TABEL & GRAFIK BATANG (BERDAMPINGAN/MENUMPUK) ---
+    # --- BAGIAN ATAS: TABEL & GRAFIK BATANG ---
     type_summary = (
         df_filtered.groupby('Room type', dropna=False)
         .agg(Total_Booking=('Booking number', 'count'), Total_Revenue=('Revenue', 'sum'))
@@ -164,7 +171,6 @@ elif menu_pilihan == "Analisis Per Tipe Kamar":
     type_summary_display = type_summary.copy()
     type_summary_display['Total_Revenue'] = type_summary_display['Total_Revenue'].apply(format_rupiah)
     
-    # Gunakan layout responsif
     col_tabel, col_chart = st.columns([1, 1])
     
     with col_tabel:
@@ -179,16 +185,14 @@ elif menu_pilihan == "Analisis Per Tipe Kamar":
             text='Total_Booking', 
             title="Total Booking per Tipe Kamar"
         )
-        # Optimasi margin untuk layar kecil
         fig_bar.update_layout(margin=dict(l=10, r=10, t=40, b=10))
         st.plotly_chart(fig_bar, use_container_width=True)
         
-    st.divider() # Garis pembatas horizontal
+    st.divider()
     
     # --- BAGIAN BAWAH: GRAFIK GARIS TREN HARIAN PER TIPE KAMAR ---
     st.markdown("**Tren Jumlah Booking Harian per Tipe Kamar**")
     
-    # Membuat aggregasi data harian berdasarkan tipe kamar
     daily_type_summary = (
         df_filtered.groupby(['Check_in_Date_Only', 'Room type'])
         .agg(Total_Booking=('Booking number', 'count'))
@@ -196,21 +200,19 @@ elif menu_pilihan == "Analisis Per Tipe Kamar":
         .sort_values(by='Check_in_Date_Only')
     )
     
-    # Membuat Grafik Garis Multi-Line
     fig_line = px.line(
         daily_type_summary,
         x='Check_in_Date_Only',
         y='Total_Booking',
-        color='Room type',  # Membedakan warna garis berdasarkan tipe kamar
-        markers=True,       # Menambahkan titik pada setiap data
+        color='Room type',
+        markers=True,
         title="Tren Harian Booking Berdasarkan Tipe Kamar",
         labels={'Check_in_Date_Only': 'Tanggal Check-in', 'Total_Booking': 'Jumlah Booking'}
     )
     
-    # Menyesuaikan margin dan legenda agar rapi di semua layar
     fig_line.update_layout(
         margin=dict(l=10, r=10, t=40, b=10),
-        legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5) # Legenda horizontal di bawah chart
+        legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5)
     )
     
     st.plotly_chart(fig_line, use_container_width=True)
@@ -239,8 +241,7 @@ elif menu_pilihan == "Analisis Per Kamar / Room Number":
 elif menu_pilihan == "Tren Per Tanggal & Bulan":
     st.subheader("📅 Summary & Tren Berdasarkan Periode Waktu")
     
-    # Preprocessing tambahan untuk periode waktu baru
-    # Resample Mingguan (W-MON) menghitung periode dari Senin ke Minggu
+    # Preprocessing tambahan untuk periode waktu
     df_filtered['Check_in_Date_DT'] = pd.to_datetime(df_filtered['Check_in_Date_Only'])
     df_filtered['Week_Start'] = df_filtered['Check_in_Date_DT'].dt.to_period('W-SUN').dt.start_time
     df_filtered['Check_in_Week'] = df_filtered['Week_Start'].dt.strftime('Minggu %V (%Y)')
@@ -271,6 +272,7 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
             title="Grafik Tren Revenue Harian",
             labels={'Check_in_Date_Only': 'Tanggal', 'Total_Revenue': 'Total Revenue'}
         )
+        fig_daily.update_layout(yaxis=dict(tickprefix="Rp ", tickformat=",.0f"))
         st.plotly_chart(fig_daily, use_container_width=True)
         
         daily_summary_display = daily_summary.copy()
@@ -294,6 +296,7 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
             title="Grafik Tren Revenue Mingguan (Senin - Minggu)",
             labels={'Check_in_Week': 'Minggu Ke-', 'Total_Revenue': 'Total Revenue'}
         )
+        fig_weekly.update_layout(yaxis=dict(tickprefix="Rp ", tickformat=",.0f"))
         st.plotly_chart(fig_weekly, use_container_width=True)
         
         weekly_summary_display = weekly_summary[['Check_in_Week', 'Total_Booking', 'Total_Revenue']].copy()
@@ -317,6 +320,7 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
             title="Grafik Tren Revenue Bulanan",
             labels={'Check_in_Month': 'Bulan', 'Total_Revenue': 'Total Revenue'}
         )
+        fig_monthly.update_layout(yaxis=dict(tickprefix="Rp ", tickformat=",.0f"))
         st.plotly_chart(fig_monthly, use_container_width=True)
         
         monthly_summary_display = monthly_summary.copy()
@@ -331,18 +335,21 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
             .reset_index()
             .sort_values(by='Check_in_Quarter')
         )
+        quarterly_summary['Revenue_Formatted'] = quarterly_summary['Total_Revenue'].apply(format_rupiah)
         
         fig_quarterly = px.bar(
             quarterly_summary, 
             x='Check_in_Quarter', 
             y='Total_Revenue', 
-            text='Total_Booking',
+            text='Revenue_Formatted',
             title="Grafik Revenue Kuartalan",
             labels={'Check_in_Quarter': 'Kuartal', 'Total_Revenue': 'Total Revenue'}
         )
+        fig_quarterly.update_layout(yaxis=dict(tickprefix="Rp ", tickformat=",.0f"))
+        fig_quarterly.update_traces(textposition='outside')
         st.plotly_chart(fig_quarterly, use_container_width=True)
         
-        quarterly_summary_display = quarterly_summary.copy()
+        quarterly_summary_display = quarterly_summary[['Check_in_Quarter', 'Total_Booking', 'Total_Revenue']].copy()
         quarterly_summary_display['Total_Revenue'] = quarterly_summary_display['Total_Revenue'].apply(format_rupiah)
         st.dataframe(quarterly_summary_display, use_container_width=True)
 
@@ -354,20 +361,24 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
             .reset_index()
             .sort_values(by='Check_in_Year')
         )
+        yearly_summary['Revenue_Formatted'] = yearly_summary['Total_Revenue'].apply(format_rupiah)
         
         fig_yearly = px.bar(
             yearly_summary, 
             x='Check_in_Year', 
             y='Total_Revenue', 
-            text='Total_Booking',
+            text='Revenue_Formatted',
             title="Grafik Revenue Tahunan",
             labels={'Check_in_Year': 'Tahun', 'Total_Revenue': 'Total Revenue'}
         )
+        fig_yearly.update_layout(yaxis=dict(tickprefix="Rp ", tickformat=",.0f"))
+        fig_yearly.update_traces(textposition='outside')
         st.plotly_chart(fig_yearly, use_container_width=True)
         
-        yearly_summary_display = yearly_summary.copy()
+        yearly_summary_display = yearly_summary[['Check_in_Year', 'Total_Booking', 'Total_Revenue']].copy()
         yearly_summary_display['Total_Revenue'] = yearly_summary_display['Total_Revenue'].apply(format_rupiah)
         st.dataframe(yearly_summary_display, use_container_width=True)
+
 # ---------------------------------------------------------
 # MENU 5: DATA MENTAH / RAW DATA
 # ---------------------------------------------------------
