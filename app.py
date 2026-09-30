@@ -23,6 +23,9 @@ def load_data():
     df['Check_in_Month'] = df['Check-in date'].dt.strftime('%Y-%m')
     df['Check_in_Date_Only'] = df['Check-in date'].dt.date
     
+    # Format Tanggal khusus untuk display hover (contoh: 1 Sep 2026)
+    df['Check_in_Date_Formatted'] = df['Check-in date'].dt.strftime('%d %b %Y').str.lstrip('0')
+    
     # Rename 'Amount' -> 'Revenue'
     df = df.rename(columns={'Amount': 'Revenue'})
     
@@ -130,27 +133,41 @@ if menu_pilihan == "Ringkasan Utama & KPI":
         st.markdown("**Tren Revenue Bulanan**")
         monthly_totals = df_filtered.groupby('Check_in_Month', as_index=False)['Revenue'].sum()
         
+        # Tambahkan label bulan terformat (misal: Mar 2026) dan Revenue terformat
+        monthly_totals['Month_Formatted'] = pd.to_datetime(monthly_totals['Check_in_Month']).dt.strftime('%b %Y')
+        monthly_totals['Revenue_Formatted'] = monthly_totals['Revenue'].apply(format_rupiah)
+        
         fig1 = px.line(
             monthly_totals, 
             x='Check_in_Month', 
             y='Revenue', 
             markers=True, 
             title="Tren Revenue Bulanan",
-            labels={'Check_in_Month': 'Bulan', 'Revenue': 'Total Revenue'}
+            labels={'Check_in_Month': 'Bulan', 'Revenue': 'Total Revenue'},
+            custom_data=['Month_Formatted', 'Revenue_Formatted']
         )
-        fig1.update_traces(line_shape='linear', line_width=3)
+        fig1.update_traces(
+            line_shape='linear', 
+            line_width=3,
+            hovertemplate="%{customdata[0]}<br>%{customdata[1]}<extra></extra>"
+        )
         fig1.update_layout(yaxis=dict(tickprefix="Rp ", tickformat=",.0f"))
         st.plotly_chart(fig1, use_container_width=True)
         
     with col_chart2:
         st.markdown("**Proporsi Revenue per Tipe Kamar**")
         room_totals = df_filtered.groupby('Room type', as_index=False)['Revenue'].sum()
+        room_totals['Revenue_Formatted'] = room_totals['Revenue'].apply(format_rupiah)
+        
         fig2 = px.pie(
             room_totals, 
             names='Room type', 
             values='Revenue', 
             hole=0.4,
-            hover_data={'Revenue': ':Rp ,.0f'}
+            custom_data=['Revenue_Formatted']
+        )
+        fig2.update_traces(
+            hovertemplate="%{label}<br>%{customdata[0]} (%{percent})<extra></extra>"
         )
         st.plotly_chart(fig2, use_container_width=True)
 
@@ -160,7 +177,6 @@ if menu_pilihan == "Ringkasan Utama & KPI":
 elif menu_pilihan == "Analisis Per Tipe Kamar":
     st.subheader("📊 Performance per Room Type")
     
-    # --- BAGIAN ATAS: TABEL & GRAFIK BATANG ---
     type_summary = (
         df_filtered.groupby('Room type', dropna=False)
         .agg(Total_Booking=('Booking number', 'count'), Total_Revenue=('Revenue', 'sum'))
@@ -185,16 +201,19 @@ elif menu_pilihan == "Analisis Per Tipe Kamar":
             text='Total_Booking', 
             title="Total Booking per Tipe Kamar"
         )
+        fig_bar.update_traces(
+            hovertemplate="%{x}<br>%{y} Booking<extra></extra>",
+            textposition='outside'
+        )
         fig_bar.update_layout(margin=dict(l=10, r=10, t=40, b=10))
         st.plotly_chart(fig_bar, use_container_width=True)
         
     st.divider()
     
-    # --- BAGIAN BAWAH: GRAFIK GARIS TREN HARIAN PER TIPE KAMAR ---
     st.markdown("**Tren Jumlah Booking Harian per Tipe Kamar**")
     
     daily_type_summary = (
-        df_filtered.groupby(['Check_in_Date_Only', 'Room type'])
+        df_filtered.groupby(['Check_in_Date_Only', 'Check_in_Date_Formatted', 'Room type'])
         .agg(Total_Booking=('Booking number', 'count'))
         .reset_index()
         .sort_values(by='Check_in_Date_Only')
@@ -207,7 +226,12 @@ elif menu_pilihan == "Analisis Per Tipe Kamar":
         color='Room type',
         markers=True,
         title="Tren Harian Booking Berdasarkan Tipe Kamar",
-        labels={'Check_in_Date_Only': 'Tanggal Check-in', 'Total_Booking': 'Jumlah Booking'}
+        labels={'Check_in_Date_Only': 'Tanggal Check-in', 'Total_Booking': 'Jumlah Booking'},
+        custom_data=['Check_in_Date_Formatted', 'Room type']
+    )
+    
+    fig_line.update_traces(
+        hovertemplate="%{customdata[0]}<br>%{customdata[1]}<br>%{y} Booking<extra></extra>"
     )
     
     fig_line.update_layout(
@@ -241,7 +265,6 @@ elif menu_pilihan == "Analisis Per Kamar / Room Number":
 elif menu_pilihan == "Tren Per Tanggal & Bulan":
     st.subheader("📅 Summary & Tren Berdasarkan Periode Waktu")
     
-    # Preprocessing tambahan untuk periode waktu
     df_filtered['Check_in_Date_DT'] = pd.to_datetime(df_filtered['Check_in_Date_Only'])
     df_filtered['Week_Start'] = df_filtered['Check_in_Date_DT'].dt.to_period('W-SUN').dt.start_time
     df_filtered['Check_in_Week'] = df_filtered['Week_Start'].dt.strftime('Minggu %V (%Y)')
@@ -259,27 +282,27 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
     # --- TAB 1: HARIAN ---
     with tab1:
         daily_summary = (
-            df_filtered.groupby('Check_in_Date_Only')
+            df_filtered.groupby(['Check_in_Date_Only', 'Check_in_Date_Formatted'])
             .agg(Total_Booking=('Booking number', 'count'), Total_Revenue=('Revenue', 'sum'))
             .reset_index()
             .sort_values(by='Check_in_Date_Only')
         )
         
-        # Tambahkan kolom revenue terformat rupiah untuk hover
         daily_summary['Revenue_Formatted'] = daily_summary['Total_Revenue'].apply(format_rupiah)
         
         fig_daily = px.line(
             daily_summary, 
             x='Check_in_Date_Only', 
             y='Total_Revenue', 
+            markers=True,
             title="Grafik Tren Revenue Harian",
             labels={'Check_in_Date_Only': 'Tanggal', 'Total_Revenue': 'Total Revenue'},
-            custom_data=['Revenue_Formatted']  # Kirim format Rupiah ke custom_data
+            custom_data=['Check_in_Date_Formatted', 'Revenue_Formatted']
         )
         
-        # Custom hover template tanpa teks 'Tanggal=' dan 'Total Revenue='
+        # Hover format: 14 Feb 2026 \n Rp 7.833.406
         fig_daily.update_traces(
-            hovertemplate="%{x}<br>%{customdata[0]}<extra></extra>"
+            hovertemplate="%{customdata[0]}<br>%{customdata[1]}<extra></extra>"
         )
         
         fig_daily.update_layout(yaxis=dict(tickprefix="Rp ", tickformat=",.0f"))
@@ -298,7 +321,6 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
             .sort_values(by='Week_Start')
         )
         
-        # Tambahkan kolom revenue terformat rupiah untuk hover
         weekly_summary['Revenue_Formatted'] = weekly_summary['Total_Revenue'].apply(format_rupiah)
         
         fig_weekly = px.line(
@@ -308,10 +330,10 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
             markers=True,
             title="Grafik Tren Revenue Mingguan (Senin - Minggu)",
             labels={'Check_in_Week': 'Minggu Ke-', 'Total_Revenue': 'Total Revenue'},
-            custom_data=['Revenue_Formatted']  # Kirim format Rupiah ke custom_data
+            custom_data=['Revenue_Formatted']
         )
         
-        # Custom hover template tanpa teks 'Minggu Ke-=' dan 'Total Revenue='
+        # Hover format: Minggu 07 (2026) \n Rp 33.130.976
         fig_weekly.update_traces(
             hovertemplate="%{x}<br>%{customdata[0]}<extra></extra>"
         )
@@ -332,7 +354,7 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
             .sort_values(by='Check_in_Month')
         )
         
-        # Tambahkan nilai revenue terformat rupiah untuk hover
+        monthly_summary['Month_Formatted'] = pd.to_datetime(monthly_summary['Check_in_Month']).dt.strftime('%b %Y')
         monthly_summary['Revenue_Formatted'] = monthly_summary['Total_Revenue'].apply(format_rupiah)
         
         fig_monthly = px.line(
@@ -342,12 +364,12 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
             markers=True, 
             title="Grafik Tren Revenue Bulanan",
             labels={'Check_in_Month': 'Bulan', 'Total_Revenue': 'Total Revenue'},
-            custom_data=['Revenue_Formatted']  # Kirim format Rupiah ke custom_data
+            custom_data=['Month_Formatted', 'Revenue_Formatted']
         )
         
-        # Custom hover template tanpa teks 'Bulan=' dan 'Total Revenue='
+        # Hover format: Mar 2026 \n Rp 111.580.670
         fig_monthly.update_traces(
-            hovertemplate="%{x}<br>%{customdata[0]}<extra></extra>"
+            hovertemplate="%{customdata[0]}<br>%{customdata[1]}<extra></extra>"
         )
         
         fig_monthly.update_layout(yaxis=dict(tickprefix="Rp ", tickformat=",.0f"))
@@ -359,7 +381,6 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
 
     # --- TAB 4: KUARTALAN ---
     with tab4:
-        # Menyesuaikan label kuartal ke format 'Q1 2026'
         df_filtered['Quarter_Label'] = df_filtered['Check_in_Date_DT'].dt.to_period('Q').apply(lambda q: f"Q{q.quarter} {q.year}")
         
         quarterly_summary = (
@@ -376,12 +397,12 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
             y='Total_Revenue', 
             text='Revenue_Formatted',
             title="Grafik Revenue Kuartalan",
-            labels={'Quarter_Label': 'Kuartal', 'Total_Revenue': 'Total Revenue'}
+            labels={'Quarter_Label': 'Kuartal', 'Total_Revenue': 'Total Revenue'},
+            custom_data=['Revenue_Formatted']
         )
         
-        # Kustomisasi format tooltip / hover text
         fig_quarterly.update_traces(
-            hovertemplate="%{x}<br>revenue %{text}<extra></extra>",
+            hovertemplate="%{x}<br>%{customdata[0]}<extra></extra>",
             textposition='outside'
         )
         
@@ -408,12 +429,12 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
             y='Total_Revenue', 
             text='Revenue_Formatted',
             title="Grafik Revenue Tahunan",
-            labels={'Check_in_Year': 'Tahun', 'Total_Revenue': 'Total Revenue'}
+            labels={'Check_in_Year': 'Tahun', 'Total_Revenue': 'Total Revenue'},
+            custom_data=['Revenue_Formatted']
         )
         
-        # Kustomisasi format tooltip / hover text
         fig_yearly.update_traces(
-            hovertemplate="Tahun %{x}<br>Revenue %{text}<extra></extra>",
+            hovertemplate="Tahun %{x}<br>%{customdata[0]}<extra></extra>",
             textposition='outside'
         )
         
