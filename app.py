@@ -371,8 +371,14 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
             title="Grafik Revenue Tahunan",
             labels={'Check_in_Year': 'Tahun', 'Total_Revenue': 'Total Revenue'}
         )
+        
+        # Kustomisasi format tooltip / hover text
+        fig_yearly.update_traces(
+            hovertemplate="Tahun %{x}<br>Revenue %{text}<extra></extra>",
+            textposition='outside'
+        )
+        
         fig_yearly.update_layout(yaxis=dict(tickprefix="Rp ", tickformat=",.0f"))
-        fig_yearly.update_traces(textposition='outside')
         st.plotly_chart(fig_yearly, use_container_width=True)
         
         yearly_summary_display = yearly_summary[['Check_in_Year', 'Total_Booking', 'Total_Revenue']].copy()
