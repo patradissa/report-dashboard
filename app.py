@@ -85,7 +85,7 @@ menu_pilihan = st.sidebar.radio(
         "Ringkasan Utama & KPI",
         "Analisis Per Tipe Kamar",
         "Analisis Per Kamar / Room Number",
-        "Tren Per Tanggal & Bulan",
+        "Tren Per Periode",
         "Data Mentah / Raw Data"
     ]
 )
@@ -260,9 +260,9 @@ elif menu_pilihan == "Analisis Per Kamar / Room Number":
     st.dataframe(room_summary_display, use_container_width=True)
 
 # ---------------------------------------------------------
-# MENU 4: TREN PER TANGGAL & BULAN
+# MENU 4: TREN PER PERIODE
 # ---------------------------------------------------------
-elif menu_pilihan == "Tren Per Tanggal & Bulan":
+elif menu_pilihan == "Tren Per Periode":
     st.subheader("📅 Summary & Tren Berdasarkan Periode Waktu")
     
     df_filtered['Check_in_Date_DT'] = pd.to_datetime(df_filtered['Check_in_Date_Only'])
