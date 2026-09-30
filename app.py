@@ -237,10 +237,25 @@ elif menu_pilihan == "Analisis Per Kamar / Room Number":
 # MENU 4: TREN PER TANGGAL & BULAN
 # ---------------------------------------------------------
 elif menu_pilihan == "Tren Per Tanggal & Bulan":
-    st.subheader("📅 Summary & Tren Per Tanggal & Bulan")
+    st.subheader("📅 Summary & Tren Berdasarkan Periode Waktu")
     
-    tab1, tab2 = st.tabs(["Per Tanggal", "Per Bulan"])
+    # Preprocessing tambahan untuk periode waktu baru
+    # Resample Mingguan (W-MON) menghitung periode dari Senin ke Minggu
+    df_filtered['Check_in_Date_DT'] = pd.to_datetime(df_filtered['Check_in_Date_Only'])
+    df_filtered['Week_Start'] = df_filtered['Check_in_Date_DT'].dt.to_period('W-SUN').dt.start_time
+    df_filtered['Check_in_Week'] = df_filtered['Week_Start'].dt.strftime('Minggu %V (%Y)')
+    df_filtered['Check_in_Quarter'] = df_filtered['Check_in_Date_DT'].dt.to_period('Q').astype(str)
+    df_filtered['Check_in_Year'] = df_filtered['Check_in_Date_DT'].dt.year.astype(str)
+
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "Harian", 
+        "Mingguan (Senin-Minggu)", 
+        "Bulanan", 
+        "Kuartalan (Q1-Q4)", 
+        "Tahunan"
+    ])
     
+    # --- TAB 1: HARIAN ---
     with tab1:
         daily_summary = (
             df_filtered.groupby('Check_in_Date_Only')
@@ -261,8 +276,32 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
         daily_summary_display = daily_summary.copy()
         daily_summary_display['Total_Revenue'] = daily_summary_display['Total_Revenue'].apply(format_rupiah)
         st.dataframe(daily_summary_display, use_container_width=True)
-        
+
+    # --- TAB 2: MINGGUAN (Senin s/d Minggu) ---
     with tab2:
+        weekly_summary = (
+            df_filtered.groupby(['Week_Start', 'Check_in_Week'])
+            .agg(Total_Booking=('Booking number', 'count'), Total_Revenue=('Revenue', 'sum'))
+            .reset_index()
+            .sort_values(by='Week_Start')
+        )
+        
+        fig_weekly = px.line(
+            weekly_summary, 
+            x='Check_in_Week', 
+            y='Total_Revenue', 
+            markers=True,
+            title="Grafik Tren Revenue Mingguan (Senin - Minggu)",
+            labels={'Check_in_Week': 'Minggu Ke-', 'Total_Revenue': 'Total Revenue'}
+        )
+        st.plotly_chart(fig_weekly, use_container_width=True)
+        
+        weekly_summary_display = weekly_summary[['Check_in_Week', 'Total_Booking', 'Total_Revenue']].copy()
+        weekly_summary_display['Total_Revenue'] = weekly_summary_display['Total_Revenue'].apply(format_rupiah)
+        st.dataframe(weekly_summary_display, use_container_width=True)
+        
+    # --- TAB 3: BULANAN ---
+    with tab3:
         monthly_summary = (
             df_filtered.groupby('Check_in_Month')
             .agg(Total_Booking=('Booking number', 'count'), Total_Revenue=('Revenue', 'sum'))
@@ -284,6 +323,51 @@ elif menu_pilihan == "Tren Per Tanggal & Bulan":
         monthly_summary_display['Total_Revenue'] = monthly_summary_display['Total_Revenue'].apply(format_rupiah)
         st.dataframe(monthly_summary_display, use_container_width=True)
 
+    # --- TAB 4: KUARTALAN ---
+    with tab4:
+        quarterly_summary = (
+            df_filtered.groupby('Check_in_Quarter')
+            .agg(Total_Booking=('Booking number', 'count'), Total_Revenue=('Revenue', 'sum'))
+            .reset_index()
+            .sort_values(by='Check_in_Quarter')
+        )
+        
+        fig_quarterly = px.bar(
+            quarterly_summary, 
+            x='Check_in_Quarter', 
+            y='Total_Revenue', 
+            text='Total_Booking',
+            title="Grafik Revenue Kuartalan",
+            labels={'Check_in_Quarter': 'Kuartal', 'Total_Revenue': 'Total Revenue'}
+        )
+        st.plotly_chart(fig_quarterly, use_container_width=True)
+        
+        quarterly_summary_display = quarterly_summary.copy()
+        quarterly_summary_display['Total_Revenue'] = quarterly_summary_display['Total_Revenue'].apply(format_rupiah)
+        st.dataframe(quarterly_summary_display, use_container_width=True)
+
+    # --- TAB 5: TAHUNAN ---
+    with tab5:
+        yearly_summary = (
+            df_filtered.groupby('Check_in_Year')
+            .agg(Total_Booking=('Booking number', 'count'), Total_Revenue=('Revenue', 'sum'))
+            .reset_index()
+            .sort_values(by='Check_in_Year')
+        )
+        
+        fig_yearly = px.bar(
+            yearly_summary, 
+            x='Check_in_Year', 
+            y='Total_Revenue', 
+            text='Total_Booking',
+            title="Grafik Revenue Tahunan",
+            labels={'Check_in_Year': 'Tahun', 'Total_Revenue': 'Total Revenue'}
+        )
+        st.plotly_chart(fig_yearly, use_container_width=True)
+        
+        yearly_summary_display = yearly_summary.copy()
+        yearly_summary_display['Total_Revenue'] = yearly_summary_display['Total_Revenue'].apply(format_rupiah)
+        st.dataframe(yearly_summary_display, use_container_width=True)
 # ---------------------------------------------------------
 # MENU 5: DATA MENTAH / RAW DATA
 # ---------------------------------------------------------
