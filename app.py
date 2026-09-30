@@ -15,7 +15,7 @@ def format_rupiah(nilai):
 # 1. Load Data
 @st.cache_data
 def load_data():
-    file_path = 'ArrivalsReport_01_01_2026-31_08_2026 (2).xlsx'
+    file_path = 'ArrivalsReport.xlsx'
     df = pd.read_excel(file_path)
     
     # Preprocessing
